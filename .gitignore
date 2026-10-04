@@ -1,0 +1,5 @@
+build/
+build-riscv/
+*.syslib
+*.o
+.sysl/

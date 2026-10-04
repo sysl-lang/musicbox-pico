@@ -1,0 +1,25 @@
+// A musicbox score played on a Raspberry Pi Pico 2 W, out of one GPIO as PWM audio.
+
+package {
+  name    = "musicbox-pico"
+  version = "0.1.0"
+  sysl    = "0.0.162"
+}
+
+// **Three coordinates, so this builds from a fresh clone.**
+//
+// `sh.sysl.musicbox` is the synthesizer and the notation parser. `sh.sysl.pico2` brings the board up
+// and supplies the clock and the USB serial port. `sh.sysl.rp2350` is the chip's register map, which
+// is how the PWM slice, the DMA channel and the pin are driven: the SDK's own `pwm_*` and `dma_*`
+// functions are `static inline`, so there is nothing to bind and the registers are the API.
+dependencies {
+  musicbox { git = "github.com/sysl-lang/musicbox", version = "0.1.3" }
+  pico2    { git = "github.com/sysl-lang/pico2",    version = "0.0.9" }
+  rp2350   { git = "github.com/sysl-lang/rp2350",   version = "0.1.0" }
+}
+
+// `parse` grows the score's notes on the heap, and `pico2` asks for one anyway. The SDK links newlib,
+// so the heap is there whether or not a program touches it.
+requires {
+  heap = true
+}

@@ -1,0 +1,186 @@
+// A musicbox on a Raspberry Pi Pico 2 W: a score in musicbox notation, rendered by the board and played
+// out of GPIO 18 as PWM audio, on a loop.
+//
+// **Nothing here runs per sample.** The PWM slice turns a duty cycle into a voltage once it is
+// filtered, a DMA channel paced by its own timer copies one duty value into the slice's compare
+// register 22050 times a second, and the values come from a ring the channel walks for ever. What the
+// processor does is keep that ring ahead of the channel: it asks the channel where it is reading,
+// renders as many samples as there is room for, and writes them behind the reader. A late refill is an
+// underrun, which this counts rather than prevents, and reports over the USB serial port once a second
+// alongside the samples rendered.
+
+import sh.sysl.musicbox.*
+import sh.sysl.pico2.*
+import sh.sysl.rp2350.dma
+import sh.sysl.rp2350.io_bank0
+import sh.sysl.rp2350.pads_bank0
+import sh.sysl.rp2350.pwm
+import sh.sysl.rp2350.resets
+import sysl.time.DurationUnits
+
+// The rate the synth renders at and the DMA timer paces at. The timer divides the system clock by a
+// fraction X/Y with a 16-bit Y, and the SDK runs an RP2350 at 150 MHz: 150 MHz * 3 / 20408 is
+// 22050.2 Hz.
+private const RATE: u32 = 22050
+private const SYS_HZ_X: u32 = 3
+private const SYS_HZ_Y: u32 = 20408
+
+// GPIO 18 is PWM slice 1, channel A.
+private const SLICE: u32 = 1
+
+// The counter wraps after 1024 clocks, so the duty cycle has 10 bits and the carrier is
+// 150 MHz / 1024 = 146 kHz, far above anything the RC filter lets through.
+private const TOP: u32 = 1023
+
+// The ring: 1024 samples of one word each, 46 ms of sound. The DMA channel wraps its read address on
+// the low 12 bits, so the ring has to begin on a 4 KiB boundary.
+private const RING: usize = 1024
+private const RING_BITS: u32 = 12
+private const CHUNK: usize = 64
+
+@align(4096)
+private var ring: [1024]u32
+
+// Writes to a peripheral's register block at its atomic-set and atomic-clear aliases touch only the
+// bits written, which is what makes releasing one peripheral from reset safe beside the others.
+private const SET: u32 = 0x2000
+private const CLR: u32 = 0x3000
+
+private reg(addr: u32) -> *volatile u32 = ptr_cast(usize(addr))
+
+private write(addr: u32, v: u32)
+    val r = reg(addr)
+    *r = v
+
+private read(addr: u32) -> u32
+    val r = reg(addr)
+    *r
+
+// The score. Bach's Minuet in G (BWV Anh. 114), the first eight bars: the tune on a bell over a
+// plucked bass.
+private minuet() -> string = raw"""
+    [tempo 132] [key g major]
+    << [instrument bell] [octave 5]
+       d4 g,8 a, b, c d4 g, g, e4 c8 d e f g4 g, g,
+       c4 d8 c b, a, b,4 c8 b, a, g, f,4 g,8 a, b, g, a,2.
+     | [instrument pluck] [octave 3] [volume 0.6]
+       g2 a4 b2. c'2. b2. a2. g2. d'4 b g d'2 d4 >>
+    """
+
+// A sample as a duty cycle: the 16-bit signed range onto 0..TOP, silence at the middle.
+private duty(s: i16) -> u32 = u32(i32(s) + 32768) >> 6
+
+// Release the four peripherals this uses from reset. The SDK's runtime has normally done this before
+// `main`, so it is cheap; it is here so the program does not depend on what ran before it.
+private unreset()
+    val wanted = resets.RESET_PWM_MASK | resets.RESET_DMA_MASK | resets.RESET_IO_BANK0_MASK |
+        resets.RESET_PADS_BANK0_MASK
+
+    write(resets.BASE + resets.RESET_OFFSET + CLR, wanted)
+
+    while read(resets.BASE + resets.RESET_DONE_OFFSET) & wanted != wanted do ()
+
+// GPIO 18 to the PWM slice, then the slice running at full speed with the output at the midpoint.
+private start_pwm()
+    // A pad comes out of reset isolated on the RP2350, so the function select alone drives nothing.
+    write(pads_bank0.BASE + pads_bank0.GPIO18_OFFSET + CLR,
+          pads_bank0.GPIO18_ISO_MASK | pads_bank0.GPIO18_OD_MASK)
+    write(io_bank0.BASE + io_bank0.GPIO18_CTRL_OFFSET, io_bank0.GPIO18_CTRL_FUNCSEL_PWM_A_1)
+
+    write(pwm.BASE + pwm.CH1_DIV_OFFSET, 1 << pwm.CH1_DIV_INT_SHIFT)
+    write(pwm.BASE + pwm.CH1_TOP_OFFSET, TOP)
+    write(pwm.BASE + pwm.CH1_CC_OFFSET, (TOP + 1) / 2)
+    write(pwm.BASE + pwm.CH1_CSR_OFFSET, pwm.CH1_CSR_EN_MASK)
+
+// DMA channel 0: from the ring to the slice's compare register, one word per tick of DMA timer 0, for
+// ever. The read address wraps inside the ring, and the transfer count's ENDLESS mode means the
+// channel never finishes, so nothing has to restart it.
+private start_dma()
+    write(dma.BASE + dma.TIMER0_OFFSET,
+          (SYS_HZ_X << dma.TIMER0_X_SHIFT) | (SYS_HZ_Y << dma.TIMER0_Y_SHIFT))
+
+    write(dma.BASE + dma.CH0_READ_ADDR_OFFSET, u32(usize(&ring[0])))
+    write(dma.BASE + dma.CH0_WRITE_ADDR_OFFSET, pwm.BASE + pwm.CH1_CC_OFFSET)
+    write(dma.BASE + dma.CH0_TRANS_COUNT_OFFSET,
+          dma.CH0_TRANS_COUNT_MODE_ENDLESS << dma.CH0_TRANS_COUNT_MODE_SHIFT)
+
+    write(dma.BASE + dma.CH0_CTRL_TRIG_OFFSET,
+          (dma.CH0_CTRL_TRIG_TREQ_SEL_TIMER0 << dma.CH0_CTRL_TRIG_TREQ_SEL_SHIFT)
+          | (0 << dma.CH0_CTRL_TRIG_CHAIN_TO_SHIFT)
+          | (RING_BITS << dma.CH0_CTRL_TRIG_RING_SIZE_SHIFT)
+          | dma.CH0_CTRL_TRIG_INCR_READ_MASK
+          | (dma.CH0_CTRL_TRIG_DATA_SIZE_SIZE_WORD << dma.CH0_CTRL_TRIG_DATA_SIZE_SHIFT)
+          | dma.CH0_CTRL_TRIG_EN_MASK)
+
+// Where in the ring the channel will read next, as an index.
+private reading() -> usize =
+    usize((read(dma.BASE + dma.CH0_READ_ADDR_OFFSET) - u32(usize(&ring[0]))) / 4)
+
+@export("main")
+boot() -> int =
+    if !init()
+        print("the board did not start")
+        return 1
+
+    val text = minuet()
+
+    val song = parse(text) match
+        Ok(s) -> s
+        Err(d) ->
+            print(explain(text, d))
+            return 1
+
+    val player: &Synth = synth(song, RATE) match
+        Ok(s) -> s
+        Err(_) ->
+            print("the score would not render")
+            return 1
+
+    unreset()
+    start_pwm()
+
+    var chunk: [64]i16
+    var written: u64 = 0         // samples put in the ring since the start
+    var played: u64 = 0          // samples the channel has taken
+    var underruns: u64 = 0
+    var loops: u64 = 0
+
+    // The ring is filled before the channel starts, so the first look finds the writer ahead.
+    fill(player, &chunk, &written, played, &loops)
+    start_dma()
+
+    var last = reading()
+    var next_report = monotonic() + 1.s
+
+    loop
+        // The channel's progress since the last look. The refill below keeps the loop far shorter
+        // than a trip round the ring, so the difference of two positions is the whole of it.
+        val at = reading()
+        played += u64((at + RING - last) % RING)
+        last = at
+
+        // The channel overtook the writer and played samples from the trip before: an underrun.
+        // Count it and carry on from where the channel is.
+        if played > written
+            underruns += 1
+            written = played
+
+        fill(player, &chunk, &written, played, &loops)
+
+        if monotonic() >= next_report
+            print("rendered", written, "samples,", underruns, "underruns,", loops, "loops")
+            next_report = next_report + 1.s
+end boot
+
+// Render into the ring until it is full up to one chunk behind the reader, starting the score again
+// whenever it ends.
+private fill(player: &Synth, chunk: *[64]i16, written: *u64, played: u64, loops: *u64)
+    while RING - 1 - usize(*written - played) >= CHUNK
+        if !player.render(chunk[0..<CHUNK])
+            player.rewind()
+            *loops += 1
+
+        val base = usize(*written % u64(RING))
+        for i in 0..<CHUNK do ring[(base + i) % RING] = duty(chunk[i])
+        *written += u64(CHUNK)
+end fill
