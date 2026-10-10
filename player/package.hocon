@@ -3,7 +3,7 @@
 package {
   name    = "musicbox-pico"
   version = "0.1.0"
-  sysl    = "0.0.162"
+  sysl    = "0.1.0-alpha.8"
 }
 
 // **Three coordinates, so this builds from a fresh clone.**
@@ -13,7 +13,7 @@ package {
 // is how the PWM slice, the DMA channel and the pin are driven: the SDK's own `pwm_*` and `dma_*`
 // functions are `static inline`, so there is nothing to bind and the registers are the API.
 dependencies {
-  musicbox { git = "github.com/sysl-lang/musicbox", version = "0.1.3" }
+  musicbox { git = "github.com/sysl-lang/musicbox", version = "0.1.4" }
   pico2    { git = "github.com/sysl-lang/pico2",    version = "0.0.9" }
   rp2350   { git = "github.com/sysl-lang/rp2350",   version = "0.1.0" }
 }
