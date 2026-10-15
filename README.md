@@ -4,6 +4,8 @@ A [musicbox](https://github.com/sysl-lang/musicbox) score played on a Raspberry 
 written in sysl. The board parses the score, renders it at 22,050 Hz, and plays it out of **GPIO 18 as
 PWM audio**, on a loop. It plays the first eight bars of Bach's Minuet in G (BWV Anh. 114).
 
+*An independent sysl package for the RP2350. It is not affiliated with or endorsed by Raspberry Pi Ltd.*
+
 How the audio gets out:
 
 - **PWM.** Slice 1, channel A, drives GPIO 18. TOP is 1023, so each sample is a 10-bit duty cycle on a
