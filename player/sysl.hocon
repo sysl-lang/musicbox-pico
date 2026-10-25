@@ -15,7 +15,7 @@ package {
 dependencies {
   musicbox { git = "github.com/sysl-lang/musicbox", version = "0.1.5" }
   pico2    { git = "github.com/sysl-lang/pico2",    version = "0.0.10" }
-  rp2350   { git = "github.com/sysl-lang/rp2350",   version = "0.1.0" }
+  rp2350   { git = "github.com/sysl-lang/rp2350",   version = "0.1.1" }
 }
 
 // `parse` grows the score's notes on the heap, and `pico2` asks for one anyway. The SDK links newlib,
