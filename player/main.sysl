@@ -16,6 +16,7 @@ import sh.sysl.rp2350.io_bank0
 import sh.sysl.rp2350.pads_bank0
 import sh.sysl.rp2350.pwm
 import sh.sysl.rp2350.resets
+import sysl.raw.ptr_cast
 import sysl.time.DurationUnits
 
 // The rate the synth renders at and the DMA timer paces at. The timer divides the system clock by a

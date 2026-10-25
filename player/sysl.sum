@@ -1,6 +1,4 @@
-github.com/sysl-lang/musicbox v0.1.3 sha256:f4cbec650b5f0a1cf2d9db9fd3b1cf464101d317fe498d9ede740687ebaedfe4
-github.com/sysl-lang/musicbox v0.1.4 sha256:94cf949f776d89d7c7073ab9d0b060273c5e91424653c047760f9fc6d96622e4
-github.com/sysl-lang/parsing v0.10.0 sha256:5362ad308b0a0b07bb6b6966d239ceebcf3e97df4998c02223a1e381fdfde7bb
-github.com/sysl-lang/parsing v0.13.0 sha256:d392b5d4449238ba518b59699b211298d7b33dc8f4abe78de8bfda57ac61e065
-github.com/sysl-lang/pico2 v0.0.9 sha256:2a652a48994b804b4b01c43e0661b00eb06f58b8f3080dcbacfdb76430e44554
+github.com/sysl-lang/musicbox v0.1.5 sha256:f9f4f3bfbd1b6d7fc376fd6a48a5e91a07e4f8b9bc92baae3e19e3aca7274d4a
+github.com/sysl-lang/parsing v0.13.2 sha256:05d41aa60754f7324c73b32a5cc1a546e71cea8120d15080385e8883e04cbce8
+github.com/sysl-lang/pico2 v0.0.10 sha256:437918886bd8dc21292c785095b5d1a21bdb5e56e0d140a7f4735f58278e991c
 github.com/sysl-lang/rp2350 v0.1.0 sha256:6e87880b329510b873be4ac33a42f23f63413b0684c8c90547f7c47fc7c9ceed

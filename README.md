@@ -33,7 +33,7 @@ ground.
 ## Building and flashing
 
 You need the [Pico SDK](https://github.com/raspberrypi/pico-sdk) (2.x), the Arm GNU toolchain, CMake,
-Ninja, and sysl 0.0.162 or later.
+Ninja, and sysl 0.6.0 or later.
 
 ```
 export PICO_SDK_PATH=/path/to/pico-sdk
@@ -50,12 +50,12 @@ link that archive. There is no C in this repository: sysl exports `main`.
 
 ## Dependencies
 
-From `player/package.hocon`:
+From `player/sysl.hocon`:
 
 ```
 dependencies {
-  musicbox { git = "github.com/sysl-lang/musicbox", version = "0.1.3" }
-  pico2    { git = "github.com/sysl-lang/pico2",    version = "0.0.9" }
+  musicbox { git = "github.com/sysl-lang/musicbox", version = "0.1.5" }
+  pico2    { git = "github.com/sysl-lang/pico2",    version = "0.0.10" }
   rp2350   { git = "github.com/sysl-lang/rp2350",   version = "0.1.0" }
 }
 ```

@@ -38,7 +38,7 @@ add_custom_command(
             "$<$<BOOL:${SYSL_C_DEFINES}>:-D;$<JOIN:${SYSL_C_DEFINES},;-D;>>"
             -o ${SYSL_ARCHIVE}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/player/main.sysl
-            ${CMAKE_CURRENT_SOURCE_DIR}/player/package.hocon
+            ${CMAKE_CURRENT_SOURCE_DIR}/player/sysl.hocon
     COMMENT "Compiling the player and musicbox for ${SYSL_TARGET}"
     COMMAND_EXPAND_LISTS
     VERBATIM)
