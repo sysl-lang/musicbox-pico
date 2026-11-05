@@ -54,7 +54,7 @@ From `player/sysl.hocon`:
 
 ```
 dependencies {
-  musicbox { git = "github.com/sysl-lang/musicbox", version = "0.1.5" }
+  musicbox { git = "github.com/sysl-lang/musicbox", version = "0.1.7" }
   pico2    { git = "github.com/sysl-lang/pico2",    version = "0.0.10" }
   rp2350   { git = "github.com/sysl-lang/rp2350",   version = "0.1.0" }
 }
