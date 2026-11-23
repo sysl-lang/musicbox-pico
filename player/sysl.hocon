@@ -2,8 +2,8 @@
 
 package {
   name    = "musicbox-pico"
-  version = "0.1.0"
-  sysl    = "0.9.0"
+  version = "0.1.1"
+  sysl    = "0.13.0"
 }
 
 // **Three coordinates, so this builds from a fresh clone.**
@@ -22,4 +22,11 @@ dependencies {
 // so the heap is there whether or not a program touches it.
 requires {
   heap = true
+}
+
+// **`libc`, because the image links newlib.** `parse` reaches `pow` through `sysl.sys`, and the
+// firmware's CMake build links the SDK's newlib and its `m` (`target_link_libraries(... m)`), so the C
+// function is there at the link. A freestanding target starts without a C library until it is granted.
+targets {
+  thumb-freestanding-softfp { capabilities { libc = true } }
 }
